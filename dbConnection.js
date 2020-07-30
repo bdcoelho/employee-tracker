@@ -65,32 +65,11 @@ function addEntity() {
         choices: ["Department", "Role", "Employee"],
       },
 
-      {
-        type: "input",
-        name: "department",
-        message: "What is the name of the department?",
-        when: function (answers) {
-          return answers.entityAdd === "Department";
-        },
-      },
 
-      {
-        type: "input",
-        name: "title",
-        message: "What is the title of the role?",
-        when: function (answers) {
-          return answers.entityAdd === "Role";
-        },
-      },
 
-      {
-        type: "input",
-        name: "salary",
-        message: "What is the salary for this role?",
-        when: function (answers) {
-          return answers.entityAdd === "Role";
-        },
-      },
+
+
+
     ])
     .then(function (answer) {
       // when finished prompting, insert a new item into the db with that info
@@ -100,31 +79,155 @@ function addEntity() {
       console.log(answer);
       switch (answer.entityAdd) {
         case "Department":
-          console.log(answer.department);
-          connection.query(
-            "INSERT INTO department SET ?",
-            {
-              name: answer.department,
-            },
-            function (err) {
-              if (err) throw err;
-              console.log("Department was added successfully!");
-              // re-prompt the user for if they want to add/view others
-              start();
-            }
-          );
+          addDepartment()
           break;
         case "Role":
-          console.log(answer.title);
-          break;
+
+addRole();
+        break;
         case "Employee":
           console.log("hello");
+          connection.end();
           break;
         default:
           return "Invalid case";
       }
 
-      console.log("END");
     });
-    connection.end();
   }
+
+
+
+
+
+
+
+
+
+
+
+
+  function addRole() {
+
+    connection.query(
+      "SELECT * FROM department",
+      function (err,res) {
+        if (err) throw err;
+        console.log(res.name);
+
+
+
+    inquirer
+      .prompt([
+        {
+          type: "input",
+          name: "title",
+          message: "What is the title of the role?",
+        },
+      
+        {
+          type: "input",
+          name: "salary",
+          message: "What is the salary for this role?",
+        },
+        
+        {
+          type: "input",
+          name: "deptId",
+          message: "What is the Department Id?",
+        }
+      
+      ])
+      .then(function (answer) {
+            connection.query(
+              "INSERT INTO role SET ?",
+              {
+                title: answer.title,
+                salary: answer.salary,
+                department_id: answer.deptId
+             },
+              function (err) {
+                if (err) throw err;
+                console.log("Role was added successfully!");
+                // re-prompt the user for if they want to add/view others
+                start();
+              }
+           );  
+
+        console.log("END3");
+      });
+
+
+
+    });  
+
+
+
+    }
+  
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  function addDepartment() {
+    // prompt for info about the item being put up for auction
+    inquirer
+      .prompt([
+
+        {
+          type: "input",
+          name: "department",
+          message: "What is the name of the department?",
+        }
+      ])
+      .then(function (answer) {
+        // when finished prompting, insert a new item into the db with that info
+
+            console.log(answer.department);
+            connection.query(
+              "INSERT INTO department SET ?",
+              {
+                name: answer.department,
+              },
+              function (err) {
+                if (err) throw err;
+                console.log("Department was added successfully!");
+                // re-prompt the user for if they want to add/view others
+                start();
+              }
+            );
+  
+        console.log("END2");
+      });
+    }
+  
+
+    
+
+
+
+
+
+
+
+
+
+
+
