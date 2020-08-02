@@ -1,5 +1,6 @@
 const mysql = require("mysql2/promise");
 const inquirer = require("inquirer");
+let index=0;
 
 // create the connection information for the sql database
 let connection;
@@ -80,14 +81,14 @@ function addEntity() {
     });
 }
 
-async function runQuery(table, column) {
+async function runQuery(table) {
   console.log("SELECT * FROM " + table);
-  const [deptName] = await connection.execute("SELECT * FROM department");
+  const [deptName] = await connection.execute("SELECT * FROM " + table);
   return deptName;
 }
 
 async function addRole() {
-  var deptName = await runQuery("department", "name");
+  var deptName = await runQuery("department");
   console.log(deptName);
   inquirer
     .prompt([
@@ -111,26 +112,22 @@ async function addRole() {
       },
     ])
     .then(function (answer) {
-      const index = deptName.findIndex(function (dept, index) {
+      index = deptName.findIndex(function (dept) {
         return dept.name === answer.deptNameSelection;
       });
       deptIdSelection = deptName[index].id;
       console.log(deptIdSelection);
 
-      connection.query(
-        "INSERT INTO role SET ?",
-        {
+      connection
+        .query("INSERT INTO role SET ?", {
           title: answer.title,
           salary: answer.salary,
           department_id: deptIdSelection,
-        },
-        function (err) {
-          if (err) throw err;
-          console.log("Role was added successfully!");
-          // re-prompt the user for if they want to add/view others
+        })
+        .then(function () {
+          console.log("Role was added successfully");
           start();
-        }
-      );
+        });
 
       console.log("END3");
     });
@@ -149,84 +146,145 @@ function addDepartment() {
     .then(function (answer) {
       // when finished prompting, insert a new item into the db with that info
 
-      connection.query(
-        "INSERT INTO department SET ?",
-        {
+      connection
+        .query("INSERT INTO department SET ?", {
           name: answer.department,
-        },
-        function (err) {
-          if (err) throw err;
-          console.log("Department was added successfully!");
-          // re-prompt the user for if they want to add/view others
+        })
+        .then(function () {
+          console.log("Department was added successfully");
           start();
-        }
-      );
+        });
 
       console.log("END2");
     });
 }
 
-function addEmployee() {
-  connection.query("SELECT * FROM role", function (err, res) {
-    if (err) throw err;
-    roleName = res.map(function (myObject) {
-      return myObject.title;
-    });
+function getManagerId(employeeTable) {
+  const managerList = employeeTable.filter(
+    (employee) => employee.manager_id == null
+  );
 
-    inquirer
-      .prompt([
-        {
-          type: "input",
-          name: "firstName",
-          message: "What is the employee's first name?",
-        },
-
-        {
-          type: "input",
-          name: "lastName",
-          message: "What is the employee's last name?",
-        },
-
-        {
-          type: "list",
-          name: "role",
-          message: "What is the employee's role?",
-          choices: roleName,
-        },
-
-        {
-          type: "list",
-          name: "manager",
-          message: "Who is the employee's manager?",
-          choices: roleName,
-        },
-      ])
-      .then(function (answer) {
-        const index = res.findIndex(function (dept, index) {
-          return dept.name === answer.deptNameSelection;
-        });
-        console.log(index);
-        deptIdSelection = res[index].id;
-        console.log(deptIdSelection);
-
-        connection.query(
-          "INSERT INTO role SET ?",
-          {
-            title: answer.title,
-            salary: answer.salary,
-            department_id: deptIdSelection,
-          },
-          function (err) {
-            if (err) throw err;
-            console.log("Role was added successfully!");
-            // re-prompt the user for if they want to add/view others
-            start();
-          }
-        );
-
-        console.log("END4");
-      });
+  const managerId = managerList.map(function (myObject) {
+    return myObject.id;
   });
+  return managerId;
+}
+
+function getManagerName(employeeTable) {
+  const managerList = employeeTable.filter(
+    (employee) => employee.manager_id == null
+  );
+  const managerFirstName = managerList.map(function (myObject) {
+    return myObject.first_name;
+  });
+  const managerLastName = managerList.map(function (myObject) {
+    return myObject.last_name;
+  });
+  const managerName = managerFirstName.map(function (firstName, i) {
+    return firstName + " " + String(managerLastName[i]);
+  });
+
+  return managerName;
+}
+
+async function addEmployee() {
+  var roleTable = await runQuery("role");
+  var employeeTable = await runQuery("employee");
+
+  console.log("look here");
+  managerName = getManagerName(employeeTable);
+  console.log(managerName);
+  managerId = getManagerId(employeeTable);
+  console.log(managerId);
+  roleList = roleTable.map(function (myObject) {
+    return myObject.title;
+  });
+  roleId = roleTable.map(function (myObject) {
+    return myObject.id;
+  });
+console.log("The role id is "+ roleId)
+
+
+
+  console.log(roleList)
+
+  inquirer
+    .prompt([
+      {
+        type: "input",
+        name: "firstName",
+        message: "What is the employee's first name?",
+      },
+
+      {
+        type: "input",
+        name: "lastName",
+        message: "What is the employee's last name?",
+      },
+
+      {
+        type: "list",
+        name: "roleNameSelection",
+        message: "What is the employee's role?",
+        choices: roleList,
+      },
+
+      {
+        type: "list",
+        name: "managerNameSelection",
+        message: "Who is the employee's manager?",
+        choices: managerName,
+      },
+    ])
+    .then(function (answer) {
+      index = managerName.findIndex(function (manager, index) {
+        return manager === answer.managerNameSelection;
+      });
+      employeeManagerId=managerId[index]
+      index = roleList.findIndex(function (role, index) {
+        return role === answer.roleNameSelection;
+      });
+      employeeRoleId=roleId[index];
+      connection
+        .query("INSERT INTO employee SET ?", {
+          first_name: answer.firstName,
+          last_name: answer.lastName,
+          role_id: employeeRoleId,
+          manager_id: employeeManagerId,
+        })
+        .then(function () {
+          console.log("Employee was added successfully");
+          start();
+        });
+
+      console.log("END3");
+    });
+}
+
+function addDepartment() {
+  // prompt for info about the item being put up for auction
+  inquirer
+    .prompt([
+      {
+        type: "input",
+        name: "department",
+        message: "What is the name of the department?",
+      },
+    ])
+    .then(function (answer) {
+      // when finished prompting, insert a new item into the db with that info
+
+      connection
+        .query("INSERT INTO department SET ?", {
+          name: answer.department,
+        })
+        .then(function () {
+          console.log("Department was added successfully");
+          start();
+        });
+
+      console.log("END2");
+    });
 }
 
 const main = async () => {
