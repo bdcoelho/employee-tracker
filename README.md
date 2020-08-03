@@ -25,7 +25,7 @@
 
   ## Description
 
-  This application allows users to maintain, update and access a database of the organization structure, employees and their roles. The application uses a command line interface to prompt users for inputs to interact with a database. The database can be accessed to display information to the user in a user-friendly format. It can also be updated by selecting or entering inputs on the CLI.
+  This application allows a business owner or administrator to maintain, update and access a database of the organization structure, employees and their roles. The application uses a command line interface to prompt users for inputs to interact with a database. The database can be accessed to display information to the user in a user-friendly format. It can also be updated by selecting or entering inputs on the CLI.
 
 
   ## Demonstration
