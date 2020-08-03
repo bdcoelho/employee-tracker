@@ -49,8 +49,6 @@ function start() {
     });
 }
 
-
-
 function viewEntities() {
   // prompt for info about the item being put up for auction
   inquirer
@@ -59,7 +57,11 @@ function viewEntities() {
         type: "list",
         name: "entityAdd",
         message: "What would you like to add?",
-        choices: ["View all employees", "View all employees by department", "View all employees by manager"],
+        choices: [
+          "View all employees",
+          "View all employees by department",
+          "View all employees by manager",
+        ],
       },
     ])
     .then(function (answer) {
@@ -95,16 +97,12 @@ function viewAll() {
   );
 }
 
-
-
-
-
 function viewByDept() {
-  connection.query(
-    "SELECT * FROM employee_db.department;",
-    (err, result) => {
+  connection
+    .query("SELECT * FROM department;")
+    .then(function (err, result) {
       if (err) {
-        throw err;
+        console.log(err);
       }
       inquirer
         .prompt({
@@ -114,39 +112,26 @@ function viewByDept() {
           choices: result.map((department) => department.name),
         })
         .then((answer) => {
+          console.log(answer);
           const query = "SELECT id FROM department WHERE name = ?";
-          connection.query(query, answer.department).then(function(err,res){
-            console.log("1");
-              console.log(err);
-
-              console.log("2");
-              console.log(res);
-
-
-              if (err) throw err;
-              const query =
-                "SELECT emps.id, emps.first_name, emps.last_name, role.title AS Role, dept.name AS Department, role.salary AS Salary FROM department dept LEFT JOIN role ON role.department_id = dept.id LEFT JOIN employee emps ON emps.role_id = role.id WHERE emps.role_id = ANY (SELECT role.id FROM role WHERE role.department_id = ?)";
-              const id = res.map((id) => id.id);
-              console.log(id);
-              connection.query(query, [id]).then(function(err,res){
-                if (err) throw err;
-                console.table(res);
-                start();
-              });
-            
-
-
-
-
-
-
-
-          });
+          console.log(query);
+          connection
+            .query(query, [answer.department])
+            .then(function (err, res) {
+              if (err) console.log("Found error here");
+              // const query =
+              //   "SELECT emps.id, emps.first_name, emps.last_name, role.title AS Role, dept.name AS Department, role.salary AS Salary FROM department dept LEFT JOIN role ON role.department_id = dept.id LEFT JOIN employee emps ON emps.role_id = role.id WHERE emps.role_id = ANY (SELECT role.id FROM role WHERE role.department_id = ?)";
+              // const id = res.map((id) => id.id);
+              // console.log(id);
+              // connection.query(query, [id]).then(function(err,res){
+              //   if (err) throw err;
+              //   console.table(res);
+              //   start();
+              // });
+            });
         });
-    }
-  );
-};
-
+    });
+}
 
 function addEntity() {
   // prompt for info about the item being put up for auction
@@ -177,13 +162,13 @@ function addEntity() {
     });
 }
 
-async function runQuery(table) {
-  const [deptName] = await connection.execute("SELECT * FROM " + table);
+async function runQuery(query) {
+  const [deptName] = await connection.execute(query);
   return deptName;
 }
 
 async function addRole() {
-  var deptName = await runQuery("department");
+  var deptName = await runQuery("SELECT * FROM department");
   inquirer
     .prompt([
       {
@@ -276,8 +261,8 @@ function getManagerName(employeeTable) {
 }
 
 async function addEmployee() {
-  var roleTable = await runQuery("role");
-  var employeeTable = await runQuery("employee");
+  var roleTable = await runQuery("SELECT * FROM role");
+  var employeeTable = await runQuery("SELECT * FROM employee");
 
   managerName = getManagerName(employeeTable);
   managerId = getManagerId(employeeTable);
@@ -315,11 +300,10 @@ async function addEmployee() {
         message: "Who is the employee's manager?",
         choices: managerName,
         when: function (answers) {
-          if (answers.roleNameSelection.includes("manager")){
-          return false;
-          };
-
-        }
+          if (answers.roleNameSelection.includes("manager")) {
+            return false;
+          }
+        },
       },
     ])
     .then(function (answer) {
