@@ -1,6 +1,7 @@
 const mysql = require("mysql2/promise");
 const inquirer = require("inquirer");
 let index = 0;
+let query = "";
 
 // create the connection information for the sql database
 let connection;
@@ -30,7 +31,7 @@ function start() {
       message: "What would you like to do?",
       choices: [
         "Add Departments, Roles or Employees",
-        "View Departments, Roles or Employees",
+        "View employees",
         "Update Employee Roles",
         "EXIT",
       ],
@@ -39,13 +40,43 @@ function start() {
       // based on their answer, either call the bid or the post functions
       if (answer.task === "Add Departments, Roles or Employees") {
         addEntity();
-      } else if (answer.task === "View Departments, Roles or Employees") {
+      } else if (answer.task === "View employees") {
         viewEntities();
       } else if (answer.task === "Update Employee Roles") {
-        // bidAuction();
+        updateEmployeeRole();
       } else {
         connection.end();
       }
+    });
+}
+
+async function updateEmployeeRole() {
+  result = await connection.query(
+    "SELECT DISTINCT concat(first_name,' ',last_name) AS Name, role.title FROM employee_db.employee LEFT JOIN role ON employee.role_id = role.id"
+  );
+  inquirer
+    .prompt([
+      {
+        name: "employee",
+        type: "list",
+        message: "Which employee would you like to update?",
+        choices: result[0].map((employee) => employee.Name),
+      },
+      {
+        name: "role",
+        type: "list",
+        message: "What is the new role?",
+        choices: result[0].map((role) => role.title),
+      },
+    ])
+    .then(async function (answer) {
+      const query =
+        "UPDATE employee SET role_id = (SELECT id FROM role WHERE title = ? ) WHERE id = (SELECT id FROM(SELECT id FROM employee WHERE CONCAT(first_name,' ',last_name) = ?) AS tmptable)";
+      err = await connection.query(
+        query,
+        [answer.role, answer.employee]);
+          console.log("Updated successfully!");
+          start();
     });
 }
 
@@ -56,11 +87,11 @@ function viewEntities() {
       {
         type: "list",
         name: "entityAdd",
-        message: "What would you like to add?",
+        message: "What would you like to view?",
         choices: [
           "View all employees",
-          "View all employees by department",
-          "View all employees by manager",
+          "View employees by department",
+          "View employees by manager",
         ],
       },
     ])
@@ -70,10 +101,10 @@ function viewEntities() {
         case "View all employees":
           viewAll();
           break;
-        case "View all employees by department":
+        case "View employees by department":
           viewByDept();
           break;
-        case "View all employees by manager":
+        case "View employees by manager":
           viewByManager();
           break;
         default:
@@ -97,39 +128,50 @@ function viewAll() {
   );
 }
 
-function viewByDept() {
-  connection
-    .query("SELECT * FROM department;")
-    .then(function (err, result) {
-      if (err) {
-        console.log(err);
-      }
-      inquirer
-        .prompt({
-          name: "department",
-          type: "list",
-          message: "Please choose a department:",
-          choices: result.map((department) => department.name),
-        })
-        .then((answer) => {
-          console.log(answer);
-          const query = "SELECT id FROM department WHERE name = ?";
-          console.log(query);
-          connection
-            .query(query, [answer.department])
-            .then(function (err, res) {
-              if (err) console.log("Found error here");
-              // const query =
-              //   "SELECT emps.id, emps.first_name, emps.last_name, role.title AS Role, dept.name AS Department, role.salary AS Salary FROM department dept LEFT JOIN role ON role.department_id = dept.id LEFT JOIN employee emps ON emps.role_id = role.id WHERE emps.role_id = ANY (SELECT role.id FROM role WHERE role.department_id = ?)";
-              // const id = res.map((id) => id.id);
-              // console.log(id);
-              // connection.query(query, [id]).then(function(err,res){
-              //   if (err) throw err;
-              //   console.table(res);
-              //   start();
-              // });
-            });
-        });
+async function viewByDept() {
+  result = await runQuery("SELECT * FROM department;");
+  inquirer
+    .prompt({
+      name: "department",
+      type: "list",
+      message: "Please choose a department:",
+      choices: result.map((department) => department.name),
+    })
+    .then(async function (answer) {
+      query =
+        "SELECT id FROM department WHERE name = '" + [answer.department] + "'";
+      result = await runQuery(query);
+
+      const id = result.map((id) => id.id);
+      query =
+        "SELECT emps.id, emps.first_name, emps.last_name, role.title AS Role, dept.name AS Department, role.salary AS Salary FROM department dept LEFT JOIN role ON role.department_id = dept.id LEFT JOIN employee emps ON emps.role_id = role.id WHERE emps.role_id = ANY (SELECT role.id FROM role WHERE role.department_id = '" +
+        [id] +
+        "')";
+      res = await runQuery(query);
+      console.table(res);
+      start();
+    });
+}
+
+async function viewByManager() {
+  (query =
+    "SELECT DISTINCT concat(mgrs.first_name, ' ', mgrs.last_name) AS Manager FROM employee emps LEFT JOIN employee mgrs ON emps.manager_id = mgrs.id WHERE concat(mgrs.first_name, ' ', mgrs.last_name) IS NOT NULL;"),
+    (result = await runQuery(query));
+  inquirer
+    .prompt({
+      name: "manager",
+      type: "list",
+      message: "Please choose a manager:",
+      choices: result.map((manager) => manager.Manager),
+    })
+    .then(async function (answer) {
+      query =
+        "SELECT emps.id, emps.first_name, emps.last_name, role.title AS Role, dept.name AS Department, role.salary AS Salary, concat(mgrs.first_name, ' ', mgrs.last_name) AS Manager FROM department dept LEFT JOIN role ON role.department_id = dept.id LEFT JOIN employee emps ON emps.role_id = role.id LEFT JOIN employee mgrs ON emps.manager_id = mgrs.id WHERE concat(mgrs.first_name, ' ', mgrs.last_name) = '" +
+        [answer.manager] +
+        "';";
+      result = await runQuery(query);
+      console.table(result);
+      start();
     });
 }
 
@@ -300,9 +342,7 @@ async function addEmployee() {
         message: "Who is the employee's manager?",
         choices: managerName,
         when: function (answer) {
-return !answer.roleNameSelection.includes("Manager")
-
-
+          return !answer.roleNameSelection.includes("Manager");
         },
       },
     ])
