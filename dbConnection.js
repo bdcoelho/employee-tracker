@@ -40,7 +40,7 @@ function start() {
       if (answer.task === "Add Departments, Roles or Employees") {
         addEntity();
       } else if (answer.task === "View Departments, Roles or Employees") {
-        // bidAuction();
+        viewEntities();
       } else if (answer.task === "Update Employee Roles") {
         // bidAuction();
       } else {
@@ -48,6 +48,105 @@ function start() {
       }
     });
 }
+
+
+
+function viewEntities() {
+  // prompt for info about the item being put up for auction
+  inquirer
+    .prompt([
+      {
+        type: "list",
+        name: "entityAdd",
+        message: "What would you like to add?",
+        choices: ["View all employees", "View all employees by department", "View all employees by manager"],
+      },
+    ])
+    .then(function (answer) {
+      // when finished prompting, insert a new item into the db with that info
+      switch (answer.entityAdd) {
+        case "View all employees":
+          viewAll();
+          break;
+        case "View all employees by department":
+          viewByDept();
+          break;
+        case "View all employees by manager":
+          viewByManager();
+          break;
+        default:
+          return "Invalid case";
+      }
+    });
+}
+
+function viewAll() {
+  connection.query(
+    "SELECT emps.id, emps.first_name, emps.last_name, role.title AS Role, dept.name AS Department, role.salary AS Salary, concat(mgrs.first_name, ' ', mgrs.last_name) AS Manager FROM employee emps LEFT JOIN employee mgrs ON emps.manager_id = mgrs.id LEFT JOIN role ON emps.role_id = role.id LEFT JOIN department dept ON role.department_id = dept.id;",
+    function (err, result) {
+      if (err) {
+        throw err;
+      } else {
+        console.table(result);
+      }
+
+      start();
+    }
+  );
+}
+
+
+
+
+
+function viewByDept() {
+  connection.query(
+    "SELECT * FROM employee_db.department;",
+    (err, result) => {
+      if (err) {
+        throw err;
+      }
+      inquirer
+        .prompt({
+          name: "department",
+          type: "list",
+          message: "Please choose a department:",
+          choices: result.map((department) => department.name),
+        })
+        .then((answer) => {
+          const query = "SELECT id FROM department WHERE name = ?";
+          connection.query(query, answer.department).then(function(err,res){
+            console.log("1");
+              console.log(err);
+
+              console.log("2");
+              console.log(res);
+
+
+              if (err) throw err;
+              const query =
+                "SELECT emps.id, emps.first_name, emps.last_name, role.title AS Role, dept.name AS Department, role.salary AS Salary FROM department dept LEFT JOIN role ON role.department_id = dept.id LEFT JOIN employee emps ON emps.role_id = role.id WHERE emps.role_id = ANY (SELECT role.id FROM role WHERE role.department_id = ?)";
+              const id = res.map((id) => id.id);
+              console.log(id);
+              connection.query(query, [id]).then(function(err,res){
+                if (err) throw err;
+                console.table(res);
+                start();
+              });
+            
+
+
+
+
+
+
+
+          });
+        });
+    }
+  );
+};
+
 
 function addEntity() {
   // prompt for info about the item being put up for auction
@@ -215,6 +314,12 @@ async function addEmployee() {
         name: "managerNameSelection",
         message: "Who is the employee's manager?",
         choices: managerName,
+        when: function (answers) {
+          if (answers.roleNameSelection.includes("manager")){
+          return false;
+          };
+
+        }
       },
     ])
     .then(function (answer) {
