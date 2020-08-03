@@ -299,10 +299,10 @@ async function addEmployee() {
         name: "managerNameSelection",
         message: "Who is the employee's manager?",
         choices: managerName,
-        when: function (answers) {
-          if (answers.roleNameSelection.includes("manager")) {
-            return false;
-          }
+        when: function (answer) {
+return !answer.roleNameSelection.includes("Manager")
+
+
         },
       },
     ])
